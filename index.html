@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BK — Synthèse CA → Synthèse JR (CSV compta)</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#181b22; --card2:#1f232c; --line:#2b303b;
+    --txt:#e7eaf0; --muted:#9aa3b2; --accent:#f6a609; --accent2:#ffce5c;
+    --green:#3ecf8e; --red:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--txt);line-height:1.5;padding:28px 18px 60px}
+  .wrap{max-width:920px;margin:0 auto}
+  .logo{display:inline-block;background:var(--accent);color:#1a1300;font-weight:800;
+        border-radius:8px;padding:3px 9px;font-size:13px;letter-spacing:.04em;margin-bottom:10px}
+  h1{font-size:22px;margin:0 0 4px;font-weight:650}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .steps{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px;font-size:13px;color:var(--muted)}
+  .steps span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  .drop{border:2px dashed var(--line);border-radius:16px;background:var(--card);
+        padding:46px 24px;text-align:center;transition:.15s;cursor:pointer}
+  .drop:hover{border-color:var(--accent)}
+  .drop.over{border-color:var(--accent);background:#20242d;transform:scale(1.005)}
+  .drop .big{font-size:18px;font-weight:600;margin-bottom:6px}
+  .drop .small{color:var(--muted);font-size:13px}
+  .ico{font-size:40px;margin-bottom:10px}
+  .opts{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 6px;align-items:center;font-size:14px;color:var(--muted)}
+  .opts label{display:flex;gap:7px;align-items:center;cursor:pointer}
+  input[type=radio]{accent-color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:18px}
+  .fname{font-weight:600;font-size:15px;margin-bottom:2px}
+  .meta{color:var(--muted);font-size:13px;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.caisse td{font-weight:700;color:var(--accent2);border-top:2px solid var(--line)}
+  .bal{display:inline-flex;align-items:center;gap:7px;font-size:13px;margin-top:12px;
+       padding:6px 12px;border-radius:8px;background:#15321f;color:var(--green)}
+  .bal.bad{background:#33181a;color:var(--red)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1300;
+       border:none;border-radius:10px;padding:12px 20px;font-size:15px;font-weight:700;
+       cursor:pointer;margin-top:16px;transition:.15s}
+  .btn:hover{background:var(--accent2)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .err{background:#33181a;color:var(--red);border:1px solid #5a2326;border-radius:10px;padding:12px 14px;margin-top:14px;font-size:13px}
+  details{margin-top:14px;font-size:13px;color:var(--muted)}
+  summary{cursor:pointer}
+  .pill{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:999px;
+        padding:2px 10px;font-size:12px;color:var(--muted);margin:3px 4px 0 0}
+  footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
+  .reset{font-size:13px;color:var(--muted);cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="logo">BK</span>
+  <h1>Synthèse CA → Synthèse JR (CSV comptable)</h1>
+  <p class="sub">Déposez la Synthèse CA (PDF) de la journée. Le fichier CSV des encaissements, prêt à importer en comptabilité, est généré automatiquement.</p>
+
+  <div class="steps">
+    <span>1 · Glissez le PDF</span><span>2 · Vérifiez l'aperçu</span><span>3 · Téléchargez le CSV</span><span>4 · Importez en compta</span>
+  </div>
+
+  <div class="opts">
+    <span>Format de sortie&nbsp;:</span>
+    <label><input type="radio" name="mode" value="merge" checked> Un seul fichier (période / mois)</label>
+    <label><input type="radio" name="mode" value="split"> Un fichier par journée</label>
+  </div>
+
+  <div id="drop" class="drop">
+    <div class="ico">📄→📊</div>
+    <div class="big">Glissez la Synthèse CA ici</div>
+    <div class="small">ou cliquez pour parcourir &nbsp;•&nbsp; plusieurs PDF acceptés</div>
+    <input id="file" type="file" accept="application/pdf" multiple hidden>
+  </div>
+
+  <div id="results"></div>
+
+  <details>
+    <summary>Comptes & règles appliqués</summary>
+    <div style="margin-top:10px">
+      <span class="pill">CB → 511220</span><span class="pill">TPE MOBILE → 511220</span>
+      <span class="pill">ANCV CONNECT → 511212</span><span class="pill">CLICK COLLECT CB → 511270</span>
+      <span class="pill">LIVRAISON BK → 511270</span><span class="pill">DELIVEROO → 511240</span>
+      <span class="pill">TRD → 511230</span><span class="pill">UBER EATS → 511250</span>
+      <span class="pill">CAISSE → 531000 (contrepartie)</span>
+    </div>
+    <p style="margin-top:10px">Journal <b>CA</b> · Encaissements en <b>Débit (D)</b>, contrepartie CAISSE en <b>Crédit (C)</b> ·
+    Montant = colonne <b>Compté/Déposé</b> · Espèces exclues · CSV séparé par <b>;</b>, décimale virgule, encodage Windows (ANSI).</p>
+  </details>
+
+  <footer>Application interne BK · La conversion s'effectue dans votre navigateur, aucun fichier n'est envoyé sur un serveur.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const MAP = {'CB':'511220','ANCV CONNECT':'511212','CLICK COLLECT CB':'511270','DELIVEROO':'511240','LIVRAISON BK':'511270','TPE MOBILE':'511220','TRD':'511230','UBER EATS':'511250'};
+const SKIP = new Set(['ESPECES','ESPÈCES','TOTAL CRT']);
+const HEADER = "DATE;COMPTE A VENTILÉ;LIBELLE;MONTANT;JOURNAL;SENS";
+
+const $ = s => document.querySelector(s);
+const drop = $('#drop'), fileInput = $('#file'), results = $('#results');
+
+drop.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',e=>handle([...e.target.files]));
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{
+  const fs=[...e.dataTransfer.files].filter(f=>/\.pdf$/i.test(f.name));
+  if(fs.length) handle(fs);
+});
+
+function frNum(s){ return parseFloat(s.replace(/\s| /g,'').replace(',','.')); }
+function toFr(n){ let s=n.toFixed(2).replace('.',','); return s.replace(/0+$/,'').replace(/,$/,''); }
+
+function reconstructLines(items){
+  const rows = {};
+  for(const it of items){
+    const y = Math.round(it.transform[5]);
+    (rows[y] ||= []).push({x: it.transform[4], s: it.str});
+  }
+  return Object.keys(rows).map(Number).sort((a,b)=>b-a)
+    .map(y => rows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim())
+    .filter(l=>l.length);
+}
+
+function parse(lines){
+  let date=null;
+  for(const l of lines){ const m=l.match(/Du\s+(\d{2})\/(\d{2})\/(\d{2})/); if(m){date=`${m[1]}/${m[2]}/20${m[3]}`;break;} }
+  let start=-1,end=lines.length;
+  for(let i=0;i<lines.length;i++){
+    if(/Type\s+Encaissement\s+th/i.test(lines[i])) start=i+1;
+    if(/TOTAL\s+CA\s+ENCAISSE/i.test(lines[i])){end=i;break;}
+  }
+  const rows=[];
+  if(start>=0){
+    for(let i=start;i<end;i++){
+      const line=lines[i];
+      const nums=[...line.matchAll(/\d[\d\s ]*,\d{2}/g)].map(m=>m[0]);
+      if(nums.length<4) continue;
+      const label=line.slice(0,line.indexOf(nums[0])).trim().toUpperCase();
+      if(SKIP.has(label)||!MAP[label]) continue;
+      rows.push({label,account:MAP[label],amount:frNum(nums[2])}); // Compté/Déposé = 3e nombre
+    }
+  }
+  return {date,rows};
+}
+
+async function readPdf(file){
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+  let lines=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const page=await doc.getPage(p);
+    const tc=await page.getTextContent();
+    lines=lines.concat(reconstructLines(tc.items));
+  }
+  return parse(lines);
+}
+
+function buildCsv(date, rows){
+  const out=[HEADER]; let total=0;
+  for(const r of rows){ out.push(`${date};${r.account};${r.label};${toFr(r.amount)};CA;D`); total+=r.amount; }
+  total=Math.round(total*100)/100;
+  out.push(`${date};531000;CAISSE;${toFr(total)};CA;C`);
+  return {text:out.join('\r\n')+'\r\n', total};
+}
+
+function toAnsiBlob(str){
+  const bytes=new Uint8Array(str.length);
+  for(let i=0;i<str.length;i++) bytes[i]=str.charCodeAt(i)&0xff;
+  return new Blob([bytes],{type:'text/csv;charset=windows-1252'});
+}
+function download(name, str){
+  const url=URL.createObjectURL(toAnsiBlob(str));
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+async function handle(files){
+  results.innerHTML = `<div class="card">Lecture de ${files.length} fichier(s)…</div>`;
+  const parsed=[];
+  for(const f of files){
+    try{
+      const r = await readPdf(f);
+      if(!r.date || !r.rows.length) parsed.push({file:f.name,error:"Tableau d'encaissement introuvable. Vérifiez qu'il s'agit bien d'une Synthèse CA."});
+      else parsed.push({file:f.name, ...r});
+    }catch(err){ parsed.push({file:f.name,error:String(err.message||err)}); }
+  }
+  parsed.sort((a,b)=>cmpDate(a.date,b.date));
+  render(parsed);
+}
+function cmpDate(a,b){
+  if(!a) return 1; if(!b) return -1;
+  const pa=a.split('/').reverse().join(''), pb=b.split('/').reverse().join('');
+  return pa<pb?-1:pa>pb?1:0;
+}
+
+function render(parsed){
+  const mode=document.querySelector('input[name=mode]:checked').value;
+  const ok=parsed.filter(p=>!p.error);
+  let html='';
+
+  parsed.forEach(p=>{
+    if(p.error){ html+=`<div class="card"><div class="fname">${esc(p.file)}</div><div class="err">⚠️ ${esc(p.error)}</div></div>`; return; }
+    const {total}=buildCsv(p.date,p.rows);
+    const sum=p.rows.reduce((s,r)=>s+r.amount,0);
+    const bal=Math.abs(sum-total)<0.005;
+    html+=`<div class="card">
+      <div class="fname">📅 Journée ${p.date}</div>
+      <div class="meta">${esc(p.file)} · ${p.rows.length} encaissement(s)</div>
+      <table><thead><tr><th>Compte</th><th>Libellé</th><th class="num">Montant</th><th>Sens</th></tr></thead><tbody>
+      ${p.rows.map(r=>`<tr><td>${r.account}</td><td>${esc(r.label)}</td><td class="num">${toFr(r.amount)}</td><td>D</td></tr>`).join('')}
+      <tr class="caisse"><td>531000</td><td>CAISSE</td><td class="num">${toFr(total)}</td><td>C</td></tr>
+      </tbody></table>
+      <div class="bal ${bal?'':'bad'}">${bal?'✓ Écriture équilibrée':'⚠ Déséquilibre'} · Débit = Crédit = ${toFr(total)}</div>
+    </div>`;
+  });
+
+  if(ok.length){
+    if(mode==='split'){
+      html+=`<div class="card"><div class="fname">Téléchargement — un fichier par journée</div>
+        <div class="meta">${ok.length} fichier(s) CSV</div>
+        <div class="actions"><button class="btn" onclick="dlAllSplit()">⬇ Télécharger ${ok.length>1?'tous les CSV':'le CSV'}</button></div></div>`;
+    } else {
+      let lines=[HEADER], grand=0, lastDate=ok[ok.length-1].date;
+      ok.forEach(p=>p.rows.forEach(r=>{ lines.push(`${p.date};${r.account};${r.label};${toFr(r.amount)};CA;D`); grand+=r.amount; }));
+      grand=Math.round(grand*100)/100;
+      lines.push(`${lastDate};531000;CAISSE;${toFr(grand)};CA;C`);
+      window.__mergedCsv = lines.join('\r\n')+'\r\n';
+      const from=ok[0].date.replace(/\//g,'-'), to=lastDate.replace(/\//g,'-');
+      window.__mergedName = ok.length>1 ? `Synthese_JR_${from}_au_${to}.csv` : `Synthese_JR_${to}.csv`;
+      html+=`<div class="card"><div class="fname">Fichier CSV consolidé — Synthèse JR</div>
+        <div class="meta">${ok.length} journée(s) · contrepartie CAISSE = ${toFr(grand)} (datée du ${lastDate})</div>
+        <div class="actions"><button class="btn" onclick="download(window.__mergedName,window.__mergedCsv)">⬇ Télécharger le CSV</button></div></div>`;
+    }
+  }
+  window.__split = ok;
+  results.innerHTML = (parsed.length?`<div style="margin-top:6px"><span class="reset" onclick="results.innerHTML=''">effacer</span></div>`:'')+html;
+}
+
+function dlAllSplit(){
+  (window.__split||[]).forEach(p=>{
+    const {text}=buildCsv(p.date,p.rows);
+    download(`Synthese_JR_${p.date.replace(/\//g,'-')}.csv`, text);
+  });
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>
