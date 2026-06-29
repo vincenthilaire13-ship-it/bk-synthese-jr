@@ -38,6 +38,8 @@
   th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
   td.num{text-align:right;font-variant-numeric:tabular-nums}
   tr.caisse td{font-weight:700;color:var(--accent2);border-top:2px solid var(--line)}
+  .badge-theo{display:inline-block;background:#3a2d12;color:var(--accent2);border:1px solid #5a4a1f;
+        border-radius:5px;padding:1px 7px;font-size:11px;margin-left:7px;vertical-align:middle}
   .bal{display:inline-flex;align-items:center;gap:7px;font-size:13px;margin-top:12px;
        padding:6px 12px;border-radius:8px;background:#15321f;color:var(--green)}
   .bal.bad{background:#33181a;color:var(--red)}
@@ -90,7 +92,8 @@
       <span class="pill">CAISSE → 531000 (contrepartie)</span>
     </div>
     <p style="margin-top:10px">Journal <b>CA</b> · Encaissements en <b>Débit (D)</b>, contrepartie CAISSE en <b>Crédit (C)</b> ·
-    Montant = colonne <b>Compté/Déposé</b> · Espèces exclues · CSV séparé par <b>;</b>, décimale virgule, encodage Windows (ANSI).</p>
+    Montant = colonne <b>Compté/Déposé</b>. <b>Règle :</b> si Compté/Déposé = 0,00 € pour un type d'encaissement,
+    on reprend automatiquement le montant <b>Encaissement théorique</b>. Espèces exclues · CSV séparé par <b>;</b>, décimale virgule, encodage Windows (ANSI).</p>
   </details>
 
   <footer>Application interne BK · La conversion s'effectue dans votre navigateur, aucun fichier n'est envoyé sur un serveur.</footer>
@@ -146,7 +149,14 @@ function parse(lines){
       if(nums.length<4) continue;
       const label=line.slice(0,line.indexOf(nums[0])).trim().toUpperCase();
       if(SKIP.has(label)||!MAP[label]) continue;
-      rows.push({label,account:MAP[label],amount:frNum(nums[2])}); // Compté/Déposé = 3e nombre
+      // Colonnes : [0]=Encaissement théorique, [1]=Prélevé, [2]=Compté/Déposé, [3]=Ecart
+      const theorique = frNum(nums[0]);
+      const compte    = frNum(nums[2]);
+      // Règle de gestion : si Compté/Déposé = 0,00 €, reprendre l'Encaissement théorique
+      const useTheo = (compte === 0);
+      const amount = useTheo ? theorique : compte;
+      if(amount === 0) continue; // rien à comptabiliser si les deux sont à 0
+      rows.push({label,account:MAP[label],amount,theorique,compte,useTheo});
     }
   }
   return {date,rows};
@@ -216,7 +226,7 @@ function render(parsed){
       <div class="fname">📅 Journée ${p.date}</div>
       <div class="meta">${esc(p.file)} · ${p.rows.length} encaissement(s)</div>
       <table><thead><tr><th>Compte</th><th>Libellé</th><th class="num">Montant</th><th>Sens</th></tr></thead><tbody>
-      ${p.rows.map(r=>`<tr><td>${r.account}</td><td>${esc(r.label)}</td><td class="num">${toFr(r.amount)}</td><td>D</td></tr>`).join('')}
+      ${p.rows.map(r=>`<tr><td>${r.account}</td><td>${esc(r.label)}${r.useTheo?'<span class="badge-theo">théorique</span>':''}</td><td class="num">${toFr(r.amount)}</td><td>D</td></tr>`).join('')}
       <tr class="caisse"><td>531000</td><td>CAISSE</td><td class="num">${toFr(total)}</td><td>C</td></tr>
       </tbody></table>
       <div class="bal ${bal?'':'bad'}">${bal?'✓ Écriture équilibrée':'⚠ Déséquilibre'} · Débit = Crédit = ${toFr(total)}</div>
